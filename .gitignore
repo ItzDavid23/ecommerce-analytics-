@@ -1,2 +1,5 @@
 # Crendenciales
 .env
+
+# Dependencias
+requirements.txt
