@@ -6,3 +6,6 @@ requirements.txt
 
 # Python persisten files
 dataenv/
+
+# Logs
+logs/*.log
