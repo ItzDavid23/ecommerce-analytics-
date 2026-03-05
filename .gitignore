@@ -3,3 +3,6 @@
 
 # Dependencias
 requirements.txt
+
+# Python persisten files
+dataenv/
