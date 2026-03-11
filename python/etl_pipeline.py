@@ -1,4 +1,4 @@
-import pandas as pandas
+import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
 import logging
@@ -28,8 +28,8 @@ log = logging.getLogger(__name__)
 # Las credenciales viven en .env, nunca en el código
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": os.getenv("DB_PORT", 5432),
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT"),
     "dbname": os.getenv("DB_NAME"),
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD")
@@ -39,7 +39,7 @@ DB_CONFIG = {
 # RUTAS DE ARCHIVOS
 # ================================================
 
-DATA_PATH = "data/raw"
+DATA_PATH = "data/raw/"
 FILES = {
     "customers": "olist_customers_dataset.csv",
     "products": "olist_products_dataset.csv",
@@ -49,6 +49,13 @@ FILES = {
     "payments": "olist_order_payments_dataset.csv",
     "reviews": "olist_order_reviews_dataset.csv"
 }
+
+PROCESSED_PATH = "data/processed/"
+
+def save_clean(df: pd.DataFrame, name: str):
+    path = f"{PROCESSED_PATH}{name}_clean.csv"
+    df.to_csv(path, index=False)
+    log.info(f"Dataset limpio guardado: {path}")
 
 # ================================================
 # CONEXIÓN A POSTGRESQL
@@ -76,6 +83,7 @@ def clean_customers(df: pd.DataFrame) -> pd.DataFrame:
     # Eliminar espacios en blanco y convertir a lowercase
     df["customer_city"] = df["customer_city"].str.strip().str.lower()
     df["customer_state"] = df["customer_state"].str.strip().str.lower()
+    
 
     # Rellenar nulos no críticos
     df["customer_zip_code_prefix"] = df["customer_zip_code_prefix"].fillna("00000")
@@ -127,6 +135,7 @@ def clean_orders(df: pd.DataFrame) -> pd.DataFrame:
 
     for col in date_cols:
         df[col] = pd.to_datetime(df[col], errors="coerce").dt.date
+        df[col] = df[col].where(df[col].notna(), None)
 
     return df
 
@@ -140,10 +149,12 @@ def clean_order_items(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def clean_order_payments(df: pd.DataFrame) -> pd.DataFrame:
-    log.info(f"Limpiando order_payments - filas iniciales: {df(len)}")
+    log.info(f"Limpiando order_payments - filas iniciales: {len(df)}")
     df = df.dropna(subset="order_id")
     df["payment_installments"] = pd.to_numeric(df["payment_installments"], errors="coerce").fillna(1).astype(int)
     df["payment_value"] = pd.to_numeric(df["payment_value"], errors="coerce").fillna(00.00)
+
+    return df
 
 def clean_reviews(df: pd.DataFrame) -> pd.DataFrame:
     log.info(f"Limpiando reviews - filas iniciales: {len(df)}")
@@ -202,6 +213,7 @@ def run_etl():
         # ---CUSTOMERS---
         df = pd.read_csv(DATA_PATH + FILES["customers"])
         df = clean_customers(df)
+        save_clean(df, "customers")
         insert_dataframe(conn, df, "dim_customers", [
             "customer_id", "customer_unique_id",
             "customer_zip_code_prefix", "customer_city", "customer_state"
@@ -210,6 +222,7 @@ def run_etl():
         # ---PRODUCTS---
         df = pd.read_csv(DATA_PATH + FILES["products"])
         df = clean_products(df)
+        save_clean(df, "products")
         insert_dataframe(conn, df, "dim_products", [
             "product_id", "product_category_name",
             "product_name_length", "product_description_length",
@@ -220,22 +233,75 @@ def run_etl():
         # ---SELLERS---
         df = pd.read_csv(DATA_PATH + FILES["sellers"])
         df = clean_sellers(df)
+        save_clean(df, "sellers")
         insert_dataframe(conn, df, "dim_sellers", [
             "seller_id", "seller_zip_code_prefix", "seller_city", "seller_state"
         ])
 
-        # ---ORDERS---
-        df = pd.read_csv(DATA_PATH + FILES["orders"])
+        # ---DIM_DATE: generada con las fechas de fact_order---
+        df_orders_raw = pd.read_csv(DATA_PATH + FILES["orders"])
+        dates = pd.to_datetime(
+            df_orders_raw["order_purchase_timestamp"], errors="coerce"
+        ).dt.date.dropna().unique()
         
+        df_dates = pd.DataFrame({"date_id": dates})
+        df_dates["date_id"] = pd.to_datetime(df_dates["date_id"])
+        df_dates["year"] = df_dates["date_id"].dt.year
+        df_dates["quarter"] = df_dates["date_id"].dt.quarter
+        df_dates["month"] = df_dates["date_id"].dt.month
+        df_dates["week"] = df_dates["date_id"].dt.isocalendar().week.astype(int)
+        df_dates["day"] = df_dates["date_id"].dt.day
+        df_dates["is_weekend"] = df_dates["date_id"].dt.dayofweek >= 5
+        df_dates["date_id"] = df_dates["date_id"].dt.date
+
+        save_clean(df_dates, "dates")
+
+        insert_dataframe(conn, df_dates, "dim_date", [
+            "date_id", "year", "quarter", "month", "week", "day", "is_weekend"
+        ])        
+
+        # ---ORDERS---
+        df = clean_orders(df_orders_raw)
+        save_clean(df, "orders")
+        insert_dataframe(conn, df, "fact_orders", [
+            "order_id", "customer_id", "order_status",
+            "order_purchase_timestamp", "order_approved_at",
+            "order_delivered_customer_date", "order_estimated_delivery_date"
+        ])
 
         # ---ORDER_ITEMS---
         df = pd.read_csv(DATA_PATH + FILES["order_items"])
+        df = clean_order_items(df)
+        save_clean(df, "order_items")
+        insert_dataframe(conn, df, "fact_order_items", [
+            "order_id", "order_item_id", "product_id",
+            "seller_id", "price", "freight_value"
+        ])
 
         # ---ORDER_PAYMENTS---
         df = pd.read_csv(DATA_PATH + FILES["payments"])
+        df = clean_order_payments(df)
+        save_clean(df, "order_payments")
+        insert_dataframe(conn, df, "fact_order_payments", [
+            "order_id", "payment_sequential", "payment_type", "payment_installments", "payment_value"
+        ])
 
         #--- ORDER_REVIEWS---
         df = pd.read_csv(DATA_PATH + FILES["reviews"])
+        df = clean_reviews(df)
+        save_clean(df, "order_reviews")
+        insert_dataframe(conn, df, "fact_order_reviews", [
+            "review_id", "order_id", "review_score",
+            "review_creation_date", "review_answer_timestamp"
+        ])
 
     except Exception as e:
+        log.error(f"ETL fallido: {e}")
+        raise
+    finally:
+        conn.close()
+        log.info("Conexión cerrada")
+        log.info("ETL finalizado")
 
+if __name__ == "__main__":
+    run_etl()
