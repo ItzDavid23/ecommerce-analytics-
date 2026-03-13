@@ -9,3 +9,6 @@ dataenv/
 
 # Logs
 logs/*.log
+
+# Origen de datos
+data/
