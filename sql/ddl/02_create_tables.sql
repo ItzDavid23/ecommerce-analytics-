@@ -6,10 +6,6 @@
 -- for the ecommerce star schema model.
 -- =====================================================
 
--- Create schema
-CREATE SCHEMA IF NOT EXISTS ecommerce;
-SET search_path TO ecommerce;
-
 -- =====================================================
 -- DIMENSIONS
 -- =====================================================
@@ -19,6 +15,7 @@ SET search_path TO ecommerce;
 CREATE TABLE dim_customers(
     customer_id VARCHAR(50) PRIMARY KEY,
     customer_unique_id VARCHAR(50),
+    customer_zip_code_prefix VARCHAR(10),
     customer_city VARCHAR(100),
     customer_state CHAR(2)
 );
@@ -42,7 +39,7 @@ CREATE TABLE dim_products(
 CREATE TABLE dim_sellers(
     seller_id VARCHAR(50) PRIMARY KEY,
     seller_zip_code_prefix VARCHAR(10),
-    seller_city VARCHAR(30),
+    seller_city VARCHAR(50),
     seller_state CHAR(2)
 );
 
@@ -68,10 +65,11 @@ CREATE TABLE fact_orders(
     order_id VARCHAR(50) PRIMARY KEY,
     customer_id VARCHAR(50),
     order_status VARCHAR(20),
-    order_purchase_date DATE,
-    order_approved_date DATE,
-    order_delivered_date DATE,
-    order_estimated_date DATE
+    order_purchase_timestamp DATE,
+    order_approved_at DATE,
+    order_delivered_carrier_date DATE,
+    order_delivered_customer_date DATE,
+    order_estimated_delivery_date DATE
 );
 
 -- Order items fact table
@@ -104,5 +102,5 @@ CREATE TABLE fact_order_reviews(
     order_id VARCHAR(50),
     review_score SMALLINT,
     review_creation_date DATE,
-    review_answer_date DATE
+    review_answer_timestamp DATE
 );
