@@ -103,7 +103,7 @@ rfm_segmented AS (
             WHEN recency_score >= 2 AND frequency_score >= 3 THEN 'At risk'-- compraban seguido pero llevan tiempo sin comprar
             WHEN recency_score >= 1 AND frequency_score >= 1 THEN 'Lost' -- no compran hace mucho y compraron poco
             WHEN monetary_score >= 4 AND frequency_score >= 2 THEN 'Big Spenders' -- gastan mucho pero no compran seguido
-            ELSER 'Potential Loyalist' -- potenciales clientes leales
+            ELSE 'Potential Loyalist' -- potenciales clientes leales
         END AS segment
     FROM rfm_scored
 )

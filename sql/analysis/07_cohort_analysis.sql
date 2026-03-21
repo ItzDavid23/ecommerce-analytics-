@@ -178,7 +178,7 @@ SELECT
     MIN(order_purchase_timestamp - previous_purchase_date) AS min_days_between_purchases,
     MAX(order_purchase_timestamp - previous_purchase_date) AS max_days_between_purchases,
     PERCENTILE_CONT(0.5) WITHIN GROUP (
-        ORDER BY (order_purchase_timestamp -previous_purchase_date)
+        ORDER BY (order_purchase_timestamp - previous_purchase_date)
     ) AS median_days_between_purchases
 FROM ordered_purchases
 WHERE purchase_number = 2 -- solo la segunda compra (intervalo 1->2)

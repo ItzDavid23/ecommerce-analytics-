@@ -15,9 +15,9 @@
 -- Tablas usadas:
 -- fact_order_items → revenue y volumen de ventas por producto
 -- fact_orders → fechas de compra y entrega
--- fact_order_reviews → satisfacción del cliente por producto
+-- fact_order_reviews → satisfacción del cliente por categoria de producto
 -- dim_products → categoría de producto
--- dim_customers → satisfacción por cliente
+-- dim_customers → satisfacción por producto
 -- ============================================================
 
 SET search_path TO ecommerce;
