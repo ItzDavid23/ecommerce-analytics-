@@ -86,7 +86,7 @@ SELECT
         (SUM(p.payment_value) - LAG(SUM(p.payment_value)) OVER(ORDER BY DATE_TRUNC('month', o.order_purchase_timestamp)))
         * 100.0
         /
-        NULLIF(LAG(SUM(p.payment_value)) OVER(ORDER BY o.order_purchase_timestamp), 0)::NUMERIC, 2
+        NULLIF(LAG(SUM(p.payment_value)) OVER(ORDER BY DATE_TRUNC('month', o.order_purchase_timestamp)), 0)::NUMERIC, 2
     )                                                       AS mom_growth_pct
 
 FROM fact_orders o
@@ -109,7 +109,7 @@ SELECT
     COUNT(DISTINCT i.product_id)                            AS unique_products,
     ROUND(SUM(i.price)::NUMERIC, 2)                         AS total_revenue,
     ROUND(AVG(i.price)::NUMERIC, 2)                         AS avg_price,
-    ROUND(AVG(r.revie_score)::NUMERIC, 2)                   AS avg_review_score,
+    ROUND(AVG(r.review_score)::NUMERIC, 2)                   AS avg_review_score,
 
     -- % del revenue total (share de mercado por categoria)
     ROUND(
@@ -120,8 +120,8 @@ SELECT
     RANK() OVER(ORDER BY SUM(i.price) DESC) revenue_rank
 
 FROM fact_order_items i
-JOIN fact_orders ON i.order_id ON o.order_id
-JOIN dim_products ON i.product_id = p.product_id
+JOIN fact_orders o ON i.order_id = o.order_id
+JOIN dim_products p ON i.product_id = p.product_id
 LEFT JOIN fact_order_reviews r ON i.order_id = r.order_id
 WHERE o.order_status NOT IN ('canceled', 'unavailable')
 AND p.product_category_name IS NOT NULL
@@ -137,43 +137,43 @@ ORDER BY total_revenue DESC;
 CREATE MATERIALIZED VIEW mv_delivery_performance AS
 SELECT
     DATE_TRUNC('month', o.order_purchase_timestamp)::DATE    AS month,
-    TO_CHAR(o.order_purchase_timestamp, 'YYYY-MM')          AS month_label,
+    TO_CHAR(DATE_TRUNC('month', o.order_purchase_timestamp), 'YYYY-MM')          AS month_label,
     COUNT(*)                                                AS total_delivered,
 
     -- Promedio de días desde compra hasta entrega
     ROUND(
         AVG(o.order_delivered_customer_date - o.order_purchase_timestamp)
-        ::NUMERIC, 1                                        AS avg_delivery_days,
-    )
+        ::NUMERIC, 1
+    )                                                       AS avg_delivery_days,
 
     -- Promedio de días de entrega estimados
     ROUND(
-        AVG(o.order_estimated_delivery_days - o.order_purchase_timestamp)
-        ::NUMERIC, 1                                        AS avg_estimated_days
-    )
+        AVG(o.order_estimated_delivery_date - o.order_purchase_timestamp)
+        ::NUMERIC, 1
+    )                                                       AS avg_estimated_days,
 
     -- Órdenes entregadas a tiempo
     COUNT(*) FILTER(
-        WHERE o.order_delivered_customer_date <= o.order_estimated_date
+        WHERE o.order_delivered_customer_date <= o.order_estimated_delivery_date
     )                                                       AS on_time_count,
 
     -- Órdenes entregadas tarde
     COUNT(*) FILTER(
-        WHERE o.order_delivered_customer_date > o.order_estimated_delivery_days
+        WHERE o.order_delivered_customer_date > o.order_estimated_delivery_date
     )                                                       AS late_count,
 
     -- Tasa de entrega a tiempo en %
     ROUND(
         COUNT(*) FILTER(
-            WHERE o.order_delivered_customer_days <= o.order_estimated_delivery_date
+            WHERE o.order_delivered_customer_date <= o.order_estimated_delivery_date
         ) * 100.0 / NULLIF(COUNT(*), 0), 2
     )                                                       AS on_time_rate
 
-FROM fact_orders_o
+FROM fact_orders o
 WHERE o.order_status = 'delivered'
 AND o.order_delivered_customer_date IS NOT NULL
 GROUP BY DATE_TRUNC('month', o.order_purchase_timestamp)
-ORDER BY month
+ORDER BY month;
 
 -- ============================================================
 -- VISTA 5: Segmentos RFM resumidos
@@ -184,8 +184,8 @@ ORDER BY month
 CREATE MATERIALIZED VIEW mv_rfm_segments AS
 WITH orders_with_payment AS (
     SELECT
-        o.order_id
-        o.customer_id
+        o.order_id,
+        o.customer_id,
         o.order_purchase_timestamp,
         SUM(p.payment_value) AS order_value
     FROM fact_orders o
