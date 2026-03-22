@@ -139,12 +139,12 @@ The dashboard is built in Metabase, directly connected to PostgreSQL materialize
 - Total revenue and month-over-month growth
 - On-time delivery rate
 - RFM customer segmentation distribution
-- Top categories by revenue and satisfaction score
-- Average delivery days vs. estimated
+- Top categories by revenue
 
 ![Dashboard Overview](dashboard/screenshots/01_overview.png)
-![Revenue Monthly](dashboard/screenshots/02_revenue_monthly.png)
-![RFM Segments](dashboard/screenshots/04_rfm_segments.png)
+![Top_categories](dashboard/screenshots/02_top_cateogires.png)
+![RFM Segments](dashboard/screenshots/03_rfm_segments.png)
+![Delivery KPI](dashboard/screenshots/04_delivery_kpis.png)
 
 ---
 
@@ -186,6 +186,7 @@ pip install -r requirements.txt
 psql -U postgres -f sql/ddl/01_create_schema.sql
 psql -U postgres -f sql/ddl/02_create_tables.sql
 psql -U postgres -f sql/ddl/03_create_indexes.sql
+psql -U postgres -f sql/ddl/04_create_constraints.sql
 
 # 4. Download the dataset from Kaggle and place the CSV files in /data/raw/
 # https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce
