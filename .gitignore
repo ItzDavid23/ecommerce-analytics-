@@ -12,3 +12,6 @@ logs/*.log
 
 # Origen de datos
 data/
+
+# Pruebas de codigo
+.ipynb
