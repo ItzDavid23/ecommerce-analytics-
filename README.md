@@ -142,8 +142,8 @@ The dashboard is built in Metabase, directly connected to PostgreSQL materialize
 - Top categories by revenue
 
 ![Dashboard Overview](dashboard/screenshots/01_overview.png)
-![Top_categories](dashboard/screenshots/02_top_cateogires.png)
-![RFM Segments](dashboard/screenshots/03_rfm_segments.png)
+![Top_categories](dashboard/screenshots/02_top_categories.png)
+![RFM Segments](dashboard/screenshots/03_rfm_segmentation.png)
 ![Delivery KPI](dashboard/screenshots/04_delivery_kpis.png)
 
 ---
